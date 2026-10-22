@@ -1,0 +1,532 @@
+openapi: 3.0.3
+
+# Specification of the endpoints needed to deliver screen documents.
+# Import it into Swagger UI; controllers or clients can be generated from it.
+#
+# WHAT IS DELIBERATELY NOT DESCRIBED HERE: the DATA endpoints. They already
+# exist in your app, and a document adds nothing to them: it only names the
+# paths those endpoints return. This specification covers only the storage
+# and delivery of documents.
+
+info:
+  title: HotLayout Delivery
+  version: '1.0.0'
+  description: |
+    Delivery of server-driven UI screen documents.
+
+    Two groups of endpoints with different access rules:
+
+    * **admin** — under a staff token. Editing, publishing, history,
+      rollback.
+    * **client** — read by the SDK in the app. A published document is not
+      a secret: the user sees it on the screen anyway.
+
+    The main boundary of the system: **document ≠ data**. A document says
+    HOW to show, and is the same for everyone; data says WHAT to show, and
+    is different for each person. They travel separately and are merged on
+    the phone.
+
+servers:
+  - url: https://api.example.com
+    description: production
+  - url: https://api-test.example.com
+    description: test
+
+tags:
+  - name: admin
+    description: Editing documents. A staff token.
+  - name: client
+    description: Read by the SDK in the user's app.
+
+paths:
+  /admin/ui-documents:
+    get:
+      tags: [admin]
+      summary: List of documents
+      description: |
+        Usually the response has a single entry — the document of a
+        gamification module. There will be several if seasonal activities
+        get documents of their own.
+      security: [{ staffAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/UiDocumentSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /admin/ui-documents/{id}:
+    get:
+      tags: [admin]
+      summary: Draft of a document with details
+      security: [{ staffAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: OK
+          headers:
+            ETag:
+              description: Version of the draft. It is sent back in `If-Match` when saving.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UiDocumentDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/ui-documents/{id}/draft:
+    put:
+      tags: [admin]
+      summary: Save the draft
+      description: |
+        Autosave of the builder: called every time the manager has changed
+        something, after a short delay.
+
+        **The draft is NOT validated against the schema.** A half-built
+        screen is a normal working state and has to be saved as it is.
+        Publication validates.
+
+        `If-Match` is required: without it two open tabs would silently
+        overwrite each other's work.
+      security: [{ staffAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - name: If-Match
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DraftBody' }
+      responses:
+        '200':
+          description: Saved
+          headers:
+            ETag:
+              description: The new version of the draft.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SaveReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: The draft was changed in another tab or by another user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '413':
+          description: The document is larger than 1 MB.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /admin/ui-documents/{id}/publish:
+    post:
+      tags: [admin]
+      summary: Publish
+      description: |
+        Three actions in one transaction:
+
+        1. validate the document against `screen-schema.json` **on the
+           backend** (the builder validates too, but it runs in a browser
+           and cannot be the only barrier);
+        2. create an immutable version row;
+        3. switch `publishedVersionId` to it.
+
+        If validation fails — `422` with a list of errors, and nothing
+        changes.
+      security: [{ staffAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  description: A comment on the publication, for the history.
+                  maxLength: 200
+      responses:
+        '200':
+          description: Published
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: The document does not match the schema. Nothing was changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationProblem' }
+
+  /admin/ui-documents/{id}/versions:
+    get:
+      tags: [admin]
+      summary: Publication history
+      description: 'Newest first. This is also the audit trail: who released what, and when.'
+      security: [{ staffAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VersionSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /admin/ui-documents/{id}/rollback:
+    post:
+      tags: [admin]
+      summary: Roll back to an earlier version
+      description: |
+        Rewrites nothing: moves `publishedVersionId` to the given history
+        row. The row itself stays unchanged and can be chosen again.
+      security: [{ staffAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [versionId]
+              properties:
+                versionId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Rolled back
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/ui-contract/data-fields:
+    get:
+      tags: [admin]
+      summary: Data dictionary
+      description: |
+        The list of fields and lists a document has the right to ask for.
+        The builder shows it to the manager as the "Source" and as the list
+        of bindings.
+
+        The builder can read the dictionary from this endpoint at runtime,
+        so a new field does not need a builder release.
+
+        The shape of the response is the content of `data-contract.json`,
+        section `contract`.
+      security: [{ staffAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DataContract' }
+
+  /v1/ui/documents/{key}:
+    get:
+      tags: [client]
+      summary: The published document for this SDK version
+      description: |
+        **The most important endpoint of the specification.**
+
+        Different SDK versions live in users' apps at the same time: some
+        have updated, some have not. So the client names the version it
+        understands, and the backend returns the newest document among those
+        that version can read.
+
+        The rule: **the major must match; a higher minor is readable**.
+
+        | The SDK asks for | Published | Return |
+        |---|---|---|
+        | `9.2.0` | `9.2.0` | an exact match |
+        | `9.1.0` | `9.2.0` | the same one: the SDK skips blocks it does not know |
+        | `8.20.0` | `9.0.0` | the latest with major `8`; none — `404` |
+
+        The last row is the working state after a move to a new major:
+        8.x documents stay 8.x until they are published again, and an app
+        with an 8 SDK does not draw a 9 document and must get the last 8.x
+        version.
+
+        This is why copies of **all** publications must be stored. `404`
+        is not a failure here: the SDK shows its bundled copy and the
+        screen stays usable.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The stable key of the document, e.g. `gamification`.
+          schema: { type: string }
+        - name: schemaVersion
+          in: query
+          required: true
+          description: The schema version this SDK understands.
+          schema: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+          example: '9.0.0'
+        - name: If-None-Match
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          headers:
+            ETag:
+              schema: { type: string }
+            Cache-Control:
+              description: |
+                `no-cache` — that is, "check with me", not "do not cache". A
+                long `max-age` would turn a publication into "some time within
+                the hour".
+              schema: { type: string, example: 'no-cache' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UiDocumentBody' }
+        '304':
+          description: Not changed since the last request.
+        '404':
+          description: |
+            There is no compatible version. The SDK shows its bundled copy.
+
+  /v1/ui/theme:
+    get:
+      tags: [client]
+      summary: The product theme
+      description: |
+        A separate version and a separate lifecycle: a rebrand adds no
+        widgets, and a new widget does not change the palette.
+
+        The selection rule is the same as for the document: the major must
+        match. A 4.x theme (open token dictionaries) is not readable by a
+        3.x reader — it gets the last published 3.x theme or `404`.
+      parameters:
+        - name: themeVersion
+          in: query
+          required: true
+          schema: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+          example: '4.0.0'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The content of `theme.json`, section `contract`.
+        '404':
+          description: There is no compatible version. The SDK takes its built-in copy.
+
+components:
+  securitySchemes:
+    staffAuth:
+      type: http
+      scheme: bearer
+      description: The token of a staff member who edits documents.
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: No access.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    UiDocumentSummary:
+      type: object
+      required: [id, key, name, hasUnpublishedChanges]
+      properties:
+        id: { type: string, format: uuid }
+        key:
+          type: string
+          description: The stable key by which the SDK asks for the document.
+          example: gamification
+        name: { type: string, example: 'Gamification module' }
+        hasUnpublishedChanges:
+          type: boolean
+          description: |
+            Whether the draft differs from the published version. The builder
+            shows this as a line in the header — without it a manager cannot
+            tell "everything is published" from "nothing was ever published".
+        publishedAt: { type: string, format: date-time, nullable: true }
+        draftUpdatedAt: { type: string, format: date-time }
+
+    UiDocumentDetail:
+      allOf:
+        - $ref: '#/components/schemas/UiDocumentSummary'
+        - type: object
+          required: [draftBody]
+          properties:
+            draftBody:
+              $ref: '#/components/schemas/UiDocumentBody'
+            publishedVersionId:
+              type: string
+              format: uuid
+              nullable: true
+
+    UiDocumentBody:
+      type: object
+      description: |
+        The document itself. For the backend it is a **black box**: it is
+        stored as whole JSON and validated against `screen-schema.json`.
+        Breaking the tree into relational tables is not worth it — a
+        migration on every contract change and slow queries, while a
+        document is always read as a whole.
+      required: [schemaVersion, documentId, name, initialScreenId, screens]
+      properties:
+        schemaVersion:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          example: '9.0.0'
+        documentId: { type: string }
+        name: { type: string }
+        initialScreenId: { type: string }
+        screens:
+          type: array
+          items: { type: object }
+        localization:
+          type: object
+          nullable: true
+          description: The translation table of the document's texts.
+      additionalProperties: true
+
+    DraftBody:
+      type: object
+      required: [body]
+      properties:
+        body: { $ref: '#/components/schemas/UiDocumentBody' }
+
+    SaveReceipt:
+      type: object
+      required: [savedAt, bytes]
+      properties:
+        savedAt: { type: string, format: date-time }
+        bytes: { type: integer }
+
+    PublishReceipt:
+      type: object
+      required: [versionId, version, publishedAt]
+      properties:
+        versionId: { type: string, format: uuid }
+        version:
+          type: integer
+          description: The sequence number of the publication, convenient for a person.
+          example: 42
+        publishedAt: { type: string, format: date-time }
+        schemaVersion: { type: string, example: '9.0.0' }
+
+    VersionSummary:
+      type: object
+      required: [id, version, schemaVersion, publishedAt, publishedBy, bytes, isCurrent]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, example: 42 }
+        schemaVersion: { type: string, example: '9.0.0' }
+        publishedAt: { type: string, format: date-time }
+        publishedBy: { type: string, description: 'The name of the staff member, for the history.' }
+        bytes: { type: integer }
+        note: { type: string, nullable: true }
+        isCurrent:
+          type: boolean
+          description: Whether this very version is the one currently published.
+
+    DataContract:
+      type: object
+      required: [paths, collections]
+      description: |
+        The data dictionary. The full shape is `data-contract.json`.
+      properties:
+        paths:
+          type: array
+          description: Single values.
+          items:
+            type: object
+            required: [path, type, label, sampleValue]
+            properties:
+              path: { type: string, example: 'task.title' }
+              type:
+                type: string
+                enum: [string, number, date, boolean]
+              label:
+                type: string
+                description: A human label for the manager.
+                example: 'Task title'
+              sampleValue:
+                description: A sample for the preview.
+                oneOf:
+                  - { type: string }
+                  - { type: number }
+                  - { type: boolean }
+        collections:
+          type: array
+          description: Lists.
+          items:
+            type: object
+            required: [path, label, item]
+            properties:
+              path:
+                type: string
+                description: |
+                  The path to the array. With a dot — a nested collection,
+                  relative to the record: `taskGroup.tasks`.
+                example: 'tasks'
+              label: { type: string, example: 'Tasks' }
+              item:
+                type: string
+                description: |
+                  The prefix under which a record is available inside the
+                  template. The collection `tasks` gives `task`, so the
+                  document reads `task.title`.
+                example: 'task'
+
+    Problem:
+      type: object
+      description: RFC 7807.
+      properties:
+        type: { type: string }
+        title: '{ type: string }'
+        status: { type: integer }
+        detail: '{ type: string }'
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            issues:
+              type: array
+              description: Document validation errors — the builder shows them to the manager.
+              items:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: 'child_not_allowed'
+                  path:
+                    type: string
+                    description: The path in the document, e.g. `screens[0].root.children[2]`.
+                  message: { type: string }

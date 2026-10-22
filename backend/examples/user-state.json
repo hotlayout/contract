@@ -1,0 +1,106 @@
+{
+  "tasks": [
+    {
+      "title": "Spend 500 with your card",
+      "description": "Any amount, any merchant",
+      "image": "https://cdn.example.com/tasks/payments.png",
+      "progress": 3,
+      "target": 5,
+      "completed": false,
+      "completedAt": null,
+      "rewardPoints": 100,
+      "status": "inProgress"
+    },
+    {
+      "title": "Set up a recurring payment",
+      "description": "Any amount, any merchant",
+      "image": "https://cdn.example.com/tasks/recurring.png",
+      "progress": 1,
+      "target": 1,
+      "completed": true,
+      "completedAt": "2026-10-03T10:14:35.000Z",
+      "rewardPoints": 50,
+      "status": "completed"
+    },
+    {
+      "title": "Invite a friend",
+      "description": "They get a welcome bonus too",
+      "image": "https://cdn.example.com/tasks/invite.png",
+      "progress": 0,
+      "target": 1,
+      "completed": false,
+      "completedAt": null,
+      "rewardPoints": 200,
+      "status": "locked"
+    }
+  ],
+  "taskGroups": [
+    {
+      "title": "Weekly streak",
+      "description": "Complete all tasks before the end of the month",
+      "totalTasks": 5,
+      "completedTasks": 3,
+      "completed": false,
+      "rewardPoints": 500,
+      "tasks": [
+        {
+          "title": "Pay a utility bill",
+          "description": "From the payments section",
+          "image": "https://cdn.example.com/tasks/utility.png",
+          "progress": 1,
+          "target": 1,
+          "completed": true,
+          "completedAt": "2026-10-01T08:00:00.000Z",
+          "rewardPoints": 40,
+          "status": "completed"
+        },
+        {
+          "title": "Top up your balance",
+          "description": "Any method",
+          "image": "https://cdn.example.com/tasks/topup.png",
+          "progress": 0,
+          "target": 1,
+          "completed": false,
+          "completedAt": null,
+          "rewardPoints": 40,
+          "status": "inProgress"
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "name": "Bluetooth speaker",
+      "image": "https://cdn.example.com/items/speaker.png",
+      "description": "Waterproof, 12h battery",
+      "price": 2400,
+      "selectedId": "speaker"
+    },
+    {
+      "name": "Travel backpack",
+      "image": "https://cdn.example.com/items/backpack.png",
+      "description": "Fits a 15-inch laptop",
+      "price": 3200,
+      "selectedId": "backpack"
+    }
+  ],
+  "offers": [
+    {
+      "title": "Cashback week",
+      "description": "Pay with your card on Saturday and Sunday",
+      "image": "https://cdn.example.com/offers/weekend.png",
+      "endsAt": "2026-10-31T23:59:59.000Z",
+      "discountPercent": 10,
+      "isActive": true,
+      "code": "WEEKEND20"
+    }
+  ],
+  "user.firstName": "Alex",
+  "user.points": 1250,
+  "user.level": 3,
+  "user.isPremium": false,
+  "user.memberSince": "2026-01-15T00:00:00.000Z",
+  "campaign.title": "Autumn rewards",
+  "campaign.endsAt": "2026-11-30T23:59:59.000Z",
+  "item.selectedId": "speaker"
+}

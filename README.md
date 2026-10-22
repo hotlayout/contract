@@ -54,6 +54,12 @@ There are 32 tables in 31 folders under [`fixtures/`](fixtures), named `*-cases.
 | iOS | Swift Package Manager, `https://github.com/hotlayout/hotlayout-ios` | [hotlayout/hotlayout-ios](https://github.com/hotlayout/hotlayout-ios) |
 | Android | Maven Central, `com.hotlayout:hotlayout-android` | [hotlayout/hotlayout-android](https://github.com/hotlayout/hotlayout-android) |
 
+## Backend
+
+[`backend/`](backend) is for the team that stores and serves documents: an OpenAPI description
+([`backend/openapi.yaml`](backend/openapi.yaml)), a README, an example of the user-state payload
+and a sample implementation (C# models and a PostgreSQL schema). The sample shows one possible shape; it is not a required stack.
+
 ## Links
 
 - Product: <https://hotlayout.com>

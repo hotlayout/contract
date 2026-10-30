@@ -12,11 +12,11 @@ a rebrand does not add widgets.
 
 | Artifact | What it describes | Version |
 |---|---|---|
-| [`screen-schema.json`](screen-schema.json) | the screen document: which widgets, fields and tokens exist (28 widgets) | 9.28.0 |
+| [`screen-schema.json`](screen-schema.json) | the screen document: which widgets, fields and tokens exist (28 widgets) | 9.33.0 |
 | [`theme.json`](theme.json) | the theme: what the tokens mean (colors, spacing, radii, shadows, text styles) | 4.0.1 |
-| [`data-contract.json`](data-contract.json) | the data dictionary: which values a layout may bind to, and in which form | 1.7.0 |
+| [`data-contract.json`](data-contract.json) | the data dictionary: which values a layout may bind to, and in which form | 1.8.0 |
 | [`icons.json`](icons.json) | the icon set: the drawing behind every icon name (332 icons) | 1.0.0 |
-| [`placements.json`](placements.json) | the placement map: which published document each named place of an app shows | 1.0.0 |
+| [`placements.json`](placements.json) | the placement map: which published document each named place of an app shows | 1.1.0 |
 
 The schema, the data dictionary and the placement map are JSON Schema documents with `x-…` blocks that carry
 the rules JSON Schema cannot express (layout rules, locale resolution, action catalog,
@@ -36,14 +36,14 @@ Where the schema cannot say what a reader must do, the contract says it with a t
 input and expected output, written by hand. Every reader runs the same tables and must pass every row,
 which is how the readers are kept from drifting apart.
 
-There are 33 tables in 32 folders under [`fixtures/`](fixtures), named `*-cases.json`, for example
+There are 36 tables in 34 folders under [`fixtures/`](fixtures), named `*-cases.json`, for example
 [`fixtures/actions/action-cases.json`](fixtures/actions/action-cases.json) (action addresses, event order),
 [`fixtures/template/template-cases.json`](fixtures/template/template-cases.json) (text templates, plurals, money),
 [`fixtures/locale/locale-cases.json`](fixtures/locale/locale-cases.json) (locale resolution).
 
 ## Fixture documents
 
-[`fixtures/`](fixtures) also holds 37 sample screen documents (`*-screens.json`, `*-screen.json`) and the themes they use
+[`fixtures/`](fixtures) also holds 40 sample screen documents (`*-screens.json`, `*-screen.json`) and the themes they use
 ([`fixtures/themes/`](fixtures/themes)). They validate against the schema and are what the readers render in their own tests.
 
 ## Readers
